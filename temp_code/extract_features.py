@@ -311,7 +311,7 @@ import cv2
 import pandas as pd
 from concurrent.futures import ProcessPoolExecutor
 
-IMAGE_FOLDER = 'images'
+IMAGE_FOLDER = 'imgs'
 MASK_FOLDER = 'masks'
 OUTPUT_FILE = 'extracted_features.csv'
 
@@ -357,7 +357,7 @@ def process_file(filename):
 
 if __name__ == '__main__':
     # Gather files
-    files = [f for f in os.listdir('images') if f.lower().endswith(('.png', '.jpg'))]
+    files = [f"imgs{f}" for f in os.listdir('imgs') if f.lower().endswith(('.png', '.jpg'))]
     print(f"Processing {len(files)} images...")
 
     # Faster parallel processing
