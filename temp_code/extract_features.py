@@ -319,6 +319,7 @@ OUTPUT_FILE = 'extracted_features.csv'
 def process_file(filename):
     try:
         # 1. Parse IDs (e.g., PAT_15_1001_749.png)
+        filename = os.path.basename(filepath)
         name_only = os.path.splitext(filename)[0]
         parts = name_only.split('_')
         # Combined PAT and Number for patient_id, third part for lesion_id
@@ -326,10 +327,12 @@ def process_file(filename):
         l_id = parts[2]
 
         # 2. Load Image and Mask
-        img = cv2.cvtColor(cv2.imread(f'images/{filename}'), cv2.COLOR_BGR2RGB)
-        mask = cv2.imread(f'masks/{name_only}_mask{os.path.splitext(filename)[1]}', cv2.IMREAD_GRAYSCALE)
+        img = cv2.cvtColor(cv2.imread(filepath), cv2.COLOR_BGR2RGB)
+        extension = os.path.splitext(filename)[1]
+        mask_path = f'masks/{name_only}_mask{extension}'
+        mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
         
-        if mask is None:
+        if img is None or mask is None:
             return None
         mask_bool = mask > 127
 
@@ -357,7 +360,7 @@ def process_file(filename):
 
 if __name__ == '__main__':
     # Gather files
-    files = [f"imgs{f}" for f in os.listdir('imgs') if f.lower().endswith(('.png', '.jpg'))]
+    files = [f"imgs/{f}" for f in os.listdir('imgs') if f.lower().endswith(('.png', '.jpg'))]
     print(f"Processing {len(files)} images...")
 
     # Faster parallel processing
