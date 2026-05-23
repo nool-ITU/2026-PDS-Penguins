@@ -14,7 +14,7 @@ from skimage.segmentation import slic
 import os
 from concurrent.futures import ProcessPoolExecutor
 import pandas as pd
-
+from scipy.stats import entropy
 
 # A: Asymmetry
 def cut_mask(mask):
@@ -164,7 +164,7 @@ def get_com_col(cluster, centroids):
     colors = sorted([(percent, color) for (percent, color) in zip(hist, centroids)], key= lambda x:x[0])
     start = 0
     for percent, color in colors:
-        if percent > 0.08:
+        if percent > 0.05:
             com_col_list.append(color)
         end = start + (percent * 300)
         cv2.rectangle(
@@ -217,16 +217,16 @@ def get_multicolor_rate(im, mask, n):
         return ""
 
     for i in range(0, m - 1):
-        j = i + 1
-        col_1 = com_col_list[i]
-        col_2 = com_col_list[j]
-        dist_list.append(
-            np.sqrt(
-                (col_1[0] - col_2[0]) ** 2
-                + (col_1[1] - col_2[1]) ** 2
-                + (col_1[2] - col_2[2]) ** 2
+        for j in range(i + 1, m): # This loops through ALL remaining colors
+            col_1 = com_col_list[i]
+            col_2 = com_col_list[j]
+            dist_list.append(
+                np.sqrt(
+                    (col_1[0] - col_2[0]) ** 2
+                    + (col_1[1] - col_2[1]) ** 2
+                    + (col_1[2] - col_2[2]) ** 2
+                )
             )
-        )
     return np.max(dist_list)
 
 def slic_segmentation(image, mask, n_segments = 50, compactness = 0.1):
@@ -373,6 +373,15 @@ def get_average_blue_intensity(img_rgb, mask):
     blue_pixels_in_lesion = blue_channel[mask_bin > 0]
 
     return np.mean(blue_pixels_in_lesion) if blue_pixels_in_lesion.size > 0 else 0.0
+
+def get_hue_entropy(image, mask, bins=32):
+    hsv = rgb2hsv(image)
+    hue_channel = hsv[:, :, 0]
+    pixels_in_mask = hue_channel[mask > 0]
+    if len(pixels_in_mask) == 0:
+        return 0
+    hist, _ = np.histogram(pixels_in_mask, bins=bins, range=(0, 1), density=True)
+    return entropy(hist)
 
 
 # DATA EXTRACTION & FILE SAVING
