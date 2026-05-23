@@ -303,6 +303,36 @@ def hsv_var(image, slic_segments):
 
     return hue_var, sat_var, val_var
 
+def measure_red_in_lesion(img, mask):
+    # 1. Get the cropped mask and the coordinates used for the crop
+    mask_cut, coords = cut_mask(mask)
+    row_min, row_max, col_min, col_max = coords
+    
+    # 2. Apply the exact same crop to the original image
+    img_cut = img[row_min:row_max+1, col_min:col_max+1]
+
+    # 3. Color Analysis (HSV space)
+    hsv_cut = cv2.cvtColor(img_cut, cv2.COLOR_BGR2HSV)
+    
+    # Define the red color range (Red wraps around 180 in HSV)
+    lower_red1 = np.array([0, 120, 70])
+    upper_red1 = np.array([10, 255, 255])
+    lower_red2 = np.array([170, 120, 70])
+    upper_red2 = np.array([180, 255, 255])
+
+    mask_r = cv2.inRange(hsv_cut, lower_red1, upper_red1) + cv2.inRange(hsv_cut, lower_red2, upper_red2)
+
+    # 4. Intersection between the detected red and the lesion mask
+    # Ensure the mask is binary (0 and 255)
+    _, mask_bin = cv2.threshold(mask_cut, 127, 255, cv2.THRESH_BINARY)
+    final_mask = cv2.bitwise_and(mask_r, mask_bin)
+
+    # 5. Calculate percentage
+    lesion_area = cv2.countNonZero(mask_bin)
+    red_pixels = cv2.countNonZero(final_mask)
+
+    return (red_pixels / lesion_area) * 100 if lesion_area > 0 else 0
+
 # DATA EXTRACTION & FILE SAVING
 
 
@@ -341,7 +371,7 @@ def process_file(filename):
         comp = get_compactness(mask_bool)
         conv = convexity_score(mask_bool)
         m_color = get_multicolor_rate(img, mask_bool, n=3) # Added n=3 here
-        
+        red= measure_red_in_lesion(img, mask_bool)
         # HSV Variance
         h_v, s_v, v_v = hsv_var(img, slic_segmentation(img, mask_bool))
 
