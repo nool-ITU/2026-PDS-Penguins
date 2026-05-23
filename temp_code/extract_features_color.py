@@ -44,7 +44,7 @@ def cut_mask(mask):
     row_min = active_rows[0]
     row_max = active_rows[-1]
 
-    cut_mask_ = mask[row_min:row_max+1, col_min:col_max+1]
+    cut_mask_ = mask[row_min:row_max+1, col_min:col_max+1], (row_min, row_max, col_min, col_max)
 
     return cut_mask_
 
@@ -104,7 +104,7 @@ def rotation_asymmetry(mask, n: int):
         degrees = 90 * i / n
 
         rotated_mask = rotate(mask, degrees)
-        cutted_mask = cut_mask(rotated_mask)
+        cutted_mask, _ = cut_mask(rotated_mask) # The underscore ignores the coords
 
         asymmetry_scores[degrees] = asymmetry(cutted_mask)
 
@@ -303,112 +303,77 @@ def hsv_var(image, slic_segments):
 
     return hue_var, sat_var, val_var
 
-def measure_red_in_lesion(img, mask):
-    # 1. Get the cropped mask and the coordinates used for the crop
+def measure_red_in_lesion(img_rgb, mask):
     mask_cut, coords = cut_mask(mask)
     row_min, row_max, col_min, col_max = coords
-    
-    # 2. Apply the exact same crop to the original image
-    img_cut = img[row_min:row_max+1, col_min:col_max+1]
+    img_cut = img_rgb[row_min:row_max+1, col_min:col_max+1]
 
-    # 3. Color Analysis (HSV space)
-    hsv_cut = cv2.cvtColor(img_cut, cv2.COLOR_BGR2HSV)
+    # Convert RGB to HSV
+    hsv_cut = cv2.cvtColor(img_cut, cv2.COLOR_RGB2HSV)
     
-    # Define the red color range (Red wraps around 180 in HSV)
-    lower_red1 = np.array([0, 120, 70])
-    upper_red1 = np.array([10, 255, 255])
-    lower_red2 = np.array([170, 120, 70])
+    # Relaxed Red/Pink thresholds for skin lesions
+    lower_red1 = np.array([0, 15, 40])
+    upper_red1 = np.array([15, 255, 255])
+    lower_red2 = np.array([165, 15, 40])
     upper_red2 = np.array([180, 255, 255])
 
     mask_r = cv2.inRange(hsv_cut, lower_red1, upper_red1) + cv2.inRange(hsv_cut, lower_red2, upper_red2)
-
-    # 4. Intersection between the detected red and the lesion mask
-    # Ensure the mask is binary (0 and 255)
-    _, mask_bin = cv2.threshold(mask_cut, 127, 255, cv2.THRESH_BINARY)
+    
+    _, mask_bin = cv2.threshold(mask_cut.astype(np.uint8), 0, 255, cv2.THRESH_BINARY)
     final_mask = cv2.bitwise_and(mask_r, mask_bin)
 
-    # 5. Calculate percentage
     lesion_area = cv2.countNonZero(mask_bin)
     red_pixels = cv2.countNonZero(final_mask)
 
     return (red_pixels / lesion_area) * 100 if lesion_area > 0 else 0
 
-def measure_blue_in_lesion(img, mask):
-    # 1. Get the cropped mask and the coordinates used for the crop
+def measure_blue_in_lesion(img_rgb, mask):
     mask_cut, coords = cut_mask(mask)
     row_min, row_max, col_min, col_max = coords
-    
-    # 2. Apply the exact same crop to the original image
-    img_cut = img[row_min:row_max+1, col_min:col_max+1]
+    img_cut = img_rgb[row_min:row_max+1, col_min:col_max+1]
 
-    # 3. Color Analysis (HSV space)
-    hsv_cut = cv2.cvtColor(img_cut, cv2.COLOR_BGR2HSV)
+    hsv_cut = cv2.cvtColor(img_cut, cv2.COLOR_RGB2HSV)
     
-    # Define the blue color range
-    # Blue in HSV is typically centered around 110-120
-    lower_blue = np.array([100, 120, 70])
-    upper_blue = np.array([130, 255, 255])
+    # Widened Blue/Purplish threshold
+    lower_blue = np.array([90, 10, 40])
+    upper_blue = np.array([140, 255, 255])
 
     mask_b = cv2.inRange(hsv_cut, lower_blue, upper_blue)
 
-    # 4. Intersection between the detected blue and the lesion mask
-    _, mask_bin = cv2.threshold(mask_cut, 127, 255, cv2.THRESH_BINARY)
+    _, mask_bin = cv2.threshold(mask_cut.astype(np.uint8), 0, 255, cv2.THRESH_BINARY)
     final_mask = cv2.bitwise_and(mask_b, mask_bin)
 
-    # 5. Calculate percentage
     lesion_area = cv2.countNonZero(mask_bin)
     blue_pixels = cv2.countNonZero(final_mask)
 
     return (blue_pixels / lesion_area) * 100 if lesion_area > 0 else 0
 
-def get_average_red_intensity(img, mask):
-    # 1. Get the cropped mask and the coordinates
+def get_average_red_intensity(img_rgb, mask):
     mask_cut, coords = cut_mask(mask)
     row_min, row_max, col_min, col_max = coords
-    
-    # 2. Apply the same crop to the original image
-    img_cut = img[row_min:row_max+1, col_min:col_max+1]
+    img_cut = img_rgb[row_min:row_max+1, col_min:col_max+1]
 
-    # 3. Ensure the mask is binary (0 and 255) and match the image depth if needed
-    _, mask_bin = cv2.threshold(mask_cut, 127, 255, cv2.THRESH_BINARY)
+    _, mask_bin = cv2.threshold(mask_cut.astype(np.uint8), 0, 255, cv2.THRESH_BINARY)
     
-    # 4. Use the mask to extract only the pixels belonging to the lesion
-    # OpenCV uses BGR format: B=0, G=1, R=2
-    red_channel = img_cut[:, :, 2]
-    
-    # 5. Extract only the red values where the mask is active
-    # We use boolean indexing: mask_bin > 0
+    # Since img_rgb is explicitly RGB, Red is index 0
+    red_channel = img_cut[:, :, 0]
     red_pixels_in_lesion = red_channel[mask_bin > 0]
 
-    # 6. Calculate the average
-    if red_pixels_in_lesion.size > 0:
-        return np.mean(red_pixels_in_lesion)
-    else:
-        return 0.0
+    return np.mean(red_pixels_in_lesion) if red_pixels_in_lesion.size > 0 else 0.0
 
-def get_average_blue_intensity(img, mask):
-    # 1. Get the cropped mask and the coordinates
+def get_average_blue_intensity(img_rgb, mask):
     mask_cut, coords = cut_mask(mask)
     row_min, row_max, col_min, col_max = coords
-    
-    # 2. Apply the same crop to the original image
-    img_cut = img[row_min:row_max+1, col_min:col_max+1]
+    img_cut = img_rgb[row_min:row_max+1, col_min:col_max+1]
 
-    # 3. Ensure the mask is binary (0 and 255)
-    _, mask_bin = cv2.threshold(mask_cut, 127, 255, cv2.THRESH_BINARY)
+    _, mask_bin = cv2.threshold(mask_cut.astype(np.uint8), 0, 255, cv2.THRESH_BINARY)
     
-    # 4. Use the mask to extract only the pixels belonging to the lesion
-    # OpenCV uses BGR format: B=0, G=1, R=2
-    blue_channel = img_cut[:, :, 0]
-    
-    # 5. Extract only the blue values where the mask is active
+    # Since img_rgb is explicitly RGB, Blue is index 2
+    blue_channel = img_cut[:, :, 2]
     blue_pixels_in_lesion = blue_channel[mask_bin > 0]
 
-    # 6. Calculate the average
-    if blue_pixels_in_lesion.size > 0:
-        return np.mean(blue_pixels_in_lesion)
-    else:
-        return 0.0
+    return np.mean(blue_pixels_in_lesion) if blue_pixels_in_lesion.size > 0 else 0.0
+
 
 # DATA EXTRACTION & FILE SAVING
 
@@ -422,38 +387,46 @@ IMAGE_FOLDER = 'imgs'
 MASK_FOLDER = 'masks'
 OUTPUT_FILE = 'extracted_features.csv'
 
-
-def process_file(filename):
+def process_file(filepath):
     try:
-        # 1. Parse IDs (e.g., PAT_15_1001_749.png)
         filename = os.path.basename(filepath)
-        name_only = os.path.splitext(filename)[0]
+        name_only, extension = os.path.splitext(filename)
+        
         parts = name_only.split('_')
-        # Combined PAT and Number for patient_id, third part for lesion_id
+        if len(parts) < 3:
+            return None
+
         p_id = f"{parts[0]}_{parts[1]}"
         l_id = parts[2]
 
-        # 2. Load Image and Mask
-        img = cv2.cvtColor(cv2.imread(filepath), cv2.COLOR_BGR2RGB)
-        extension = os.path.splitext(filename)[1]
-        mask_path = f'masks/{name_only}_mask{extension}'
+        img_bgr = cv2.imread(filepath)
+        if img_bgr is None:
+            return None
+        img = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
+
+        mask_path = os.path.join(MASK_FOLDER, f"{name_only}_mask{extension}")
+        if not os.path.exists(mask_path):
+            return None
+            
         mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
-        
-        if img is None or mask is None:
+        if mask is None:
             return None
         mask_bool = mask > 127
 
-        # 3. Call Harini's functions (FIXED: Added n=3)
+        if np.sum(mask_bool) == 0:
+            return None
+
         asym = mean_asymmetry(mask_bool, rotations=5)
         comp = get_compactness(mask_bool)
         conv = convexity_score(mask_bool)
-        m_color = get_multicolor_rate(img, mask_bool, n=3) # Added n=3 here
-        red= measure_red_in_lesion(img, mask_bool)
-        blue= measure_blue_in_lesion(img, mask_bool)
-        rgb_red=get_average_red_intensity(img, mask_bool)
-        rgb_blue=get_average_blue_intensity(img, mask_bool)
-        # HSV Variance
-        h_v, s_v, v_v = hsv_var(img, slic_segmentation(img, mask_bool))
+        m_color = get_multicolor_rate(img, mask_bool, n=3)
+        red = measure_red_in_lesion(img, mask_bool)
+        blue = measure_blue_in_lesion(img, mask_bool)
+        rgb_red = get_average_red_intensity(img, mask_bool)
+        rgb_blue = get_average_blue_intensity(img, mask_bool)
+        
+        slic_seg = slic_segmentation(img, mask_bool)
+        h_v, s_v, v_v = hsv_var(img, slic_seg)
 
         return {
             "patient_id": p_id,
@@ -473,15 +446,44 @@ def process_file(filename):
         return None
 
 if __name__ == '__main__':
-    # Gather files
-    files = [f"imgs/{f}" for f in os.listdir('imgs') if f.lower().endswith(('.png', '.jpg'))]
-    print(f"Processing {len(files)} images...")
+    if not os.path.exists(IMAGE_FOLDER) or not os.path.exists(MASK_FOLDER):
+        print(f"Error: Target folders '{IMAGE_FOLDER}' and/or '{MASK_FOLDER}' not found.")
+        exit(1)
 
-    # Faster parallel processing
+    files = [
+        os.path.join(IMAGE_FOLDER, f) 
+        for f in os.listdir(IMAGE_FOLDER) 
+        if f.lower().endswith(('.png', '.jpg', '.jpeg'))
+    ]
+    
+    total_files = len(files)
+    if total_files == 0:
+        print(f"No valid images found inside the '{IMAGE_FOLDER}' directory.")
+        exit(0)
+
+    print(f"Processing {total_files} images using parallel process workers...")
+
+    results = []
+    processed_count = 0
+
     with ProcessPoolExecutor() as executor:
-        results = list(executor.map(process_file, files, chunksize=10))
+        futures = {executor.submit(process_file, filepath): filepath for filepath in files}
+        
+        for future in as_completed(futures):
+            processed_count += 1
+            result = future.result()
+            
+            if result is not None:
+                results.append(result)
+            
+            # Displays live progress inline: Progress: 12/100 files processed...
+            print(f"\rProgress: {processed_count}/{total_files} files processed...", end="", flush=True)
 
-    # Save to CSV
-    df = pd.DataFrame([r for r in results if r is not None])
-    df.to_csv('extracted_features.csv', index=False)
-    print("Success! File saved as extracted_features.csv")
+    print("\nProcessing complete! Finalizing output data structure...")
+
+    if results:
+        df = pd.DataFrame(results)
+        df.to_csv(OUTPUT_FILE, index=False)
+        print(f"Success! {len(results)} records successfully generated and saved to {OUTPUT_FILE}")
+    else:
+        print("Data processing ended, but no metrics were saved. Please check file formatting or mask profiles.")
