@@ -12,7 +12,7 @@ import cv2
 from numpy import nan
 from skimage.segmentation import slic
 import os
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, as_completed
 import pandas as pd
 from scipy.stats import entropy
 
