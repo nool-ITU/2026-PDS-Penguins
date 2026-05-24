@@ -333,6 +333,83 @@ def measure_red_in_lesion(img, mask):
 
     return (red_pixels / lesion_area) * 100 if lesion_area > 0 else 0
 
+def measure_blue_in_lesion(img, mask):
+    # 1. Get the cropped mask and the coordinates used for the crop
+    mask_cut, coords = cut_mask(mask)
+    row_min, row_max, col_min, col_max = coords
+    
+    # 2. Apply the exact same crop to the original image
+    img_cut = img[row_min:row_max+1, col_min:col_max+1]
+
+    # 3. Color Analysis (HSV space)
+    hsv_cut = cv2.cvtColor(img_cut, cv2.COLOR_BGR2HSV)
+    
+    # Define the blue color range
+    # Blue in HSV is typically centered around 110-120
+    lower_blue = np.array([100, 120, 70])
+    upper_blue = np.array([130, 255, 255])
+
+    mask_b = cv2.inRange(hsv_cut, lower_blue, upper_blue)
+
+    # 4. Intersection between the detected blue and the lesion mask
+    _, mask_bin = cv2.threshold(mask_cut, 127, 255, cv2.THRESH_BINARY)
+    final_mask = cv2.bitwise_and(mask_b, mask_bin)
+
+    # 5. Calculate percentage
+    lesion_area = cv2.countNonZero(mask_bin)
+    blue_pixels = cv2.countNonZero(final_mask)
+
+    return (blue_pixels / lesion_area) * 100 if lesion_area > 0 else 0
+
+def get_average_red_intensity(img, mask):
+    # 1. Get the cropped mask and the coordinates
+    mask_cut, coords = cut_mask(mask)
+    row_min, row_max, col_min, col_max = coords
+    
+    # 2. Apply the same crop to the original image
+    img_cut = img[row_min:row_max+1, col_min:col_max+1]
+
+    # 3. Ensure the mask is binary (0 and 255) and match the image depth if needed
+    _, mask_bin = cv2.threshold(mask_cut, 127, 255, cv2.THRESH_BINARY)
+    
+    # 4. Use the mask to extract only the pixels belonging to the lesion
+    # OpenCV uses BGR format: B=0, G=1, R=2
+    red_channel = img_cut[:, :, 2]
+    
+    # 5. Extract only the red values where the mask is active
+    # We use boolean indexing: mask_bin > 0
+    red_pixels_in_lesion = red_channel[mask_bin > 0]
+
+    # 6. Calculate the average
+    if red_pixels_in_lesion.size > 0:
+        return np.mean(red_pixels_in_lesion)
+    else:
+        return 0.0
+
+def get_average_blue_intensity(img, mask):
+    # 1. Get the cropped mask and the coordinates
+    mask_cut, coords = cut_mask(mask)
+    row_min, row_max, col_min, col_max = coords
+    
+    # 2. Apply the same crop to the original image
+    img_cut = img[row_min:row_max+1, col_min:col_max+1]
+
+    # 3. Ensure the mask is binary (0 and 255)
+    _, mask_bin = cv2.threshold(mask_cut, 127, 255, cv2.THRESH_BINARY)
+    
+    # 4. Use the mask to extract only the pixels belonging to the lesion
+    # OpenCV uses BGR format: B=0, G=1, R=2
+    blue_channel = img_cut[:, :, 0]
+    
+    # 5. Extract only the blue values where the mask is active
+    blue_pixels_in_lesion = blue_channel[mask_bin > 0]
+
+    # 6. Calculate the average
+    if blue_pixels_in_lesion.size > 0:
+        return np.mean(blue_pixels_in_lesion)
+    else:
+        return 0.0
+
 # DATA EXTRACTION & FILE SAVING
 
 
@@ -372,6 +449,9 @@ def process_file(filename):
         conv = convexity_score(mask_bool)
         m_color = get_multicolor_rate(img, mask_bool, n=3) # Added n=3 here
         red= measure_red_in_lesion(img, mask_bool)
+        blue= measure_blue_in_lesion(img, mask_bool)
+        rgb_red=get_average_red_intensity(img, mask_bool)
+        rgb_blue=get_average_blue_intensity(img, mask_bool)
         # HSV Variance
         h_v, s_v, v_v = hsv_var(img, slic_segmentation(img, mask_bool))
 
@@ -383,6 +463,10 @@ def process_file(filename):
             "Compactness": comp,
             "Convexity": conv,
             "Multicolor": m_color,
+            "red_pixels": red,
+            "blue_pixels": blue,
+            "mean_red": rgb_red,
+            "mean_blue": rgb_blue,
             "Hue_Var": h_v, "Sat_Var": s_v, "Val_Var": v_v
         }
     except Exception as e:
