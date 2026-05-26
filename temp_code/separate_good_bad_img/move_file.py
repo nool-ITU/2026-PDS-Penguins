@@ -3,12 +3,12 @@ import shutil
 from pathlib import Path
 
 # Configuration
-csv_file = 'clean_data.csv'        # Path to your CSV file
+csv_file = '../../data/clean_data_with_splits.csv'        # Path to your CSV file
 csv_column = 'img_id'           # Column header name in your CSV
-img_src_dir = Path('all_imgs')    # Source for images
-img_dst_dir = Path('imgs')        # Destination for images
-mask_src_dir = Path('all_mask')   # Source for masks
-mask_dst_dir = Path('masks')      # Destination for masks
+img_src_dir = Path('../../data/imgs')    # Source for images
+img_dst_dir = Path('../../data/good_imgs')        # Destination for images
+mask_src_dir = Path('../../data/masks')   # Source for masks
+mask_dst_dir = Path('../../data/good_masks')      # Destination for masks
 
 def move_files():
     # 1. Create destination directories if they don't exist
