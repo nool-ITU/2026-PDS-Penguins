@@ -5,9 +5,9 @@ from pathlib import Path
 SCRIPT_DIR = Path(__file__).resolve().parent
 
 # Configuration
-csv_file = SCRIPT_DIR / 'clean_data_with_splits.csv'
-img_dir = SCRIPT_DIR / 'imgs_all'
-mask_dir = SCRIPT_DIR / 'masks_all'
+csv_file = SCRIPT_DIR / '../../data/clean_data_with_splits.csv'
+img_dir = SCRIPT_DIR / '../../data/imgs'
+mask_dir = SCRIPT_DIR / '../../data/masks'
 csv_column = 'img_id'
 
 # 1. Read the CSV to build independent keep-sets for images and masks

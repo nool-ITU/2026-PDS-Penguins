@@ -392,8 +392,8 @@ import cv2
 import pandas as pd
 from concurrent.futures import ProcessPoolExecutor
 
-IMAGE_FOLDER = '../../data/good_imgs'
-MASK_FOLDER = '../../data/good_masks'
+IMAGE_FOLDER = '../../data/imgs'
+MASK_FOLDER = '../../data/masks'
 OUTPUT_FILE = '../../data/extracted_features_baseline.csv'
 
 def process_file(filepath):
