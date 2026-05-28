@@ -434,7 +434,7 @@ import pandas as pd
 from concurrent.futures import ProcessPoolExecutor
 
 IMAGE_FOLDER = '../../data/shortcuts_imgs'
-MASK_FOLDER = '../../data/good_masks'
+MASK_FOLDER = '../../data/masks'
 OUTPUT_FILE = '../../data/extracted_features_extended.csv'
 
 def process_file(filepath):
@@ -451,7 +451,7 @@ def process_file(filepath):
 
         img_bgr = cv2.imread(filepath)
 
-        original_path = filepath.replace("../../data/shortcuts_imgs", "../../data/good_imgs")
+        original_path = filepath.replace("../../data/shortcuts_imgs", "../../data/imgs")
         img_bgr_original = cv2.imread(original_path)
 
         if img_bgr is None:
