@@ -5,6 +5,11 @@ import seaborn as sns
 df = pd.read_csv("../data/clean_data_with_splits.csv")
 
 
+cancerous_types = ["BCC", "SCC", "MEL"]
+
+
+df["Class"] = df["diagnostic"].isin(cancerous_types)
+
 features_b = pd.read_csv("../data/extracted_features_baseline.csv")
 features_b["group_id"]=df["group_id"]
 features_b["Class"]=df["Class"]

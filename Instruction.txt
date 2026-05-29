@@ -18,3 +18,5 @@ extended: extracted_features_extended_mean.csv
 
 The model code can be found in main.py
 Replace the input for different models as specified in the file
+
+In order to have the csv file for both the baseline and extended model for the open question run blood_features.py
