@@ -1,0 +1,20 @@
+Instruction for Penguin's Github
+
+Create an environment with the requirements in the txt file named requirements.txt using python 3.12.13
+
+In order to obtain the feature's csv file needed for the model training and testing, these steps are required in thi order:
+1. download the images, masks and metadata.csv and place them in folder data (images into imgs folder and masks into masks folder)
+2. run delete_and_new_col.py
+3. run split_data_k_fold.py
+4. run delete_from_imgs_folder.py
+5. run extracted_features_baseline.py 
+6. run shortcuts_code.py
+7. run extracted_features_extended.py
+8. run add_necessary_col_features.py
+
+Otherwise you can find a ready to use csv file produced in the same way:
+baseline: extracted_features_baseline_mean.csv
+extended: extracted_features_extended_mean.csv
+
+The model code can be found in main.py
+Replace the input for different models as specified in the file
